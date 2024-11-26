@@ -29,3 +29,10 @@ whether you want to see the packets every minute or every hour. After that it'll
 with a visualized representation of your server and client packets.
 
 ![Viewer Screenshot](https://github.com/user-attachments/assets/5229b879-de55-4224-ac1d-474f14355587)
+
+---
+
+### 📈 Stats
+Here are the statistics of the amount of servers using packet-logger to analyze their data! 🌟
+
+![Stats](https://bstats.org/signatures/bukkit/packet-logger.svg)
