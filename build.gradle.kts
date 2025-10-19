@@ -41,6 +41,7 @@ bukkit {
     main = "me.tech.packetlogger.PacketLoggerPlugin"
     authors = listOf("DebitCardz").sorted()
     apiVersion = "1.20"
+    foliaSupported = true
 
     depend = listOf("packetevents")
 }
