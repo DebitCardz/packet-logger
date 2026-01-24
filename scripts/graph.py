@@ -21,7 +21,7 @@ def get_packet_totals(db_file, time_granularity="minute", outgoing_filter=None, 
             SELECT
                 batched_packets.packet_name,
                 SUM(batched_packets.amount) AS total_amount,
-                SUM(batched_packets.amount * batched_packets.size_bytes) / 1e6 AS total_mb,
+                SUM(batched_packets.size_bytes) / 1e6 AS total_mb,
                 strftime('{time_format}', datetime(batched_packets.collected_at / 1000, 'unixepoch')) AS time_period
             FROM batched_packets
             JOIN packet_bound ON batched_packets.packet_name = packet_bound.packet_name
