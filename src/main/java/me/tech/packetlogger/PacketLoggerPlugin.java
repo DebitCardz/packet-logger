@@ -2,7 +2,7 @@ package me.tech.packetlogger;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.*;
-import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
+import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.slf4j.Logger;
@@ -48,7 +48,7 @@ public final class PacketLoggerPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
-        getServer().getAsyncScheduler().cancelTasks(this);
+        Bukkit.getAsyncScheduler().cancelTasks(this);
         metrics.shutdown();
 
         batchedPacketsService.flush();
@@ -80,7 +80,7 @@ public final class PacketLoggerPlugin extends JavaPlugin implements Listener {
                 continue;
             }
 
-            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            Bukkit.getAsyncScheduler().runNow(this, task -> {
                 deleteRecursively(folder);
                 folder.delete();
             });
