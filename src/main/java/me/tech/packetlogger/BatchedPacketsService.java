@@ -108,12 +108,12 @@ public final class BatchedPacketsService {
                 conn.commit();
             } catch(SQLException ex) {
                 conn.rollback();
-                ex.printStackTrace();
+                log.error("Unable to flush packet batch to SQLite.", ex);
             } finally {
                 conn.setAutoCommit(true);
             }
         } catch(SQLException ex) {
-            ex.printStackTrace();
+            log.error("Unable to open SQLite connection for packet batch flush.", ex);
         }
 
         packetQueue.clear();
@@ -134,10 +134,10 @@ public final class BatchedPacketsService {
 
                 statement.executeUpdate();
             } catch(SQLException ex) {
-                ex.printStackTrace();
+                log.error("Unable to persist packet bound for packet {}.", packetName, ex);
             }
         } catch(SQLException ex) {
-            ex.printStackTrace();
+            log.error("Unable to open SQLite connection for packet bound persistence.", ex);
         }
     }
 
