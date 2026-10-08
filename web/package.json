@@ -1,0 +1,33 @@
+{
+  "name": "packet-logger-viewer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b",
+    "deploy": "pnpm build && wrangler deploy"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "chart.js": "^4.5.1",
+    "sql.js": "^1.14.2",
+    "vue": "^3.5.43",
+    "vue-chartjs": "^5.3.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "22",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/tsconfig": "^0.9.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4",
+    "vue-tsc": "^3.3.12",
+    "wrangler": "^4.148.0"
+  },
+  "packageManager": "pnpm@9.7.0+sha512.dc09430156b427f5ecfc79888899e1c39d2d690f004be70e05230b72cb173d96839587545d09429b55ac3c429c801b4dc3c0e002f653830a420fa2dd4e3cf9cf"
+}

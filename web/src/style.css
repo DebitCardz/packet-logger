@@ -1,0 +1,165 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/jetbrains-mono';
+
+/*
+ * Colours follow the spark profiler viewer (dark by default, light on toggle).
+ * Chart series use a colourblind-checked categorical palette stepped for each surface.
+ */
+:root {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --bg-header: #0a0e14;
+  --surface-1: #1a1f29;
+  --surface-2: #242b38;
+  --hover: rgba(99, 179, 237, 0.08);
+  --border: #30363d;
+  --border-dark: #21262d;
+  --border-light: #484f58;
+  --grid: #262d39;
+  --shadow: #130b00;
+  --text-primary: #e0e2e4;
+  --text-secondary: #b5b5b5;
+  --text-muted: #888888;
+  --text-white: #ffffff;
+  --accent: #f77669;
+  --yellow: #ffc93a;
+  --orange: #ff9f43;
+  --orange-soft: rgba(255, 159, 67, 0.12);
+  --green: #6bcf7f;
+  --green-soft: rgba(107, 207, 127, 0.12);
+  --red: #ff5252;
+  --red-soft: rgba(255, 82, 82, 0.12);
+  --bar-from: #ffd93d;
+  --bar-to: #ff9f43;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --series-other: #5a616d;
+  --dir-in: #d6d5cc;
+  --dir-out: #6b6a64;
+  --before: #8b929e;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-header: #fafbfc;
+  --surface-1: #f8f9fa;
+  --surface-2: #e9ecef;
+  --hover: rgba(0, 0, 0, 0.05);
+  --border: #dee2e6;
+  --border-dark: #adb5bd;
+  --border-light: #ced4da;
+  --grid: #e3e6ea;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #666666;
+  --text-white: #1a1a1a;
+  --accent: #d84539;
+  --yellow: #e0a500;
+  --orange: #e8710a;
+  --orange-soft: rgba(253, 126, 20, 0.12);
+  --green: #2b8a3e;
+  --green-soft: rgba(81, 207, 102, 0.15);
+  --red: #e03131;
+  --red-soft: rgba(250, 82, 82, 0.12);
+  --bar-from: #fdde5c;
+  --bar-to: #fba252;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --series-other: #b5b4ad;
+  --dir-in: #3d3c39;
+  --dir-out: #a9a8a0;
+  --before: #9aa0a8;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-header: var(--bg-header);
+  --color-surface: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-hover: var(--hover);
+  --color-line: var(--border);
+  --color-line-dark: var(--border-dark);
+  --color-line-light: var(--border-light);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-muted);
+  --color-white-ink: var(--text-white);
+  --color-accent: var(--accent);
+  --color-yellow: var(--yellow);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
+  --color-good: var(--green);
+  --color-good-soft: var(--green-soft);
+  --color-bad: var(--red);
+  --color-bad-soft: var(--red-soft);
+  --color-dir-in: var(--dir-in);
+  --color-dir-out: var(--dir-out);
+  --color-before: var(--before);
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+  --font-sans: var(--font-mono);
+}
+
+@layer base {
+  html {
+    @apply bg-bg;
+  }
+  body {
+    @apply bg-bg font-mono text-[13px] leading-normal text-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-orange;
+  }
+  a {
+    @apply text-accent hover:underline;
+  }
+}
+
+/* Spark's panels: flat, rounded 5px, secondary background. */
+@utility panel {
+  @apply min-w-0 rounded-[5px] bg-surface p-3 sm:p-4;
+}
+
+/* Spark section headings carry a yellow "# " prefix. */
+@utility heading {
+  @apply text-[15px] font-normal text-white-ink;
+  &::before {
+    content: '# ';
+    color: var(--yellow);
+  }
+}
+
+@utility spark-bar {
+  background: linear-gradient(90deg, var(--bar-from), var(--bar-to));
+}
+
+@utility pill {
+  @apply rounded-[3px] bg-orange-soft px-1.5 text-[90%] text-orange tabular-nums;
+}
+
+@utility field {
+  @apply h-9 rounded-[5px] border-0 bg-surface px-2.5 text-ink placeholder:text-ink-3;
+}
+
+@layer components {
+  select.field {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23b5b5b5' d='M207 381.5 12.7 187.1c-9.4-9.4-9.4-24.6 0-33.9l22.7-22.7c9.4-9.4 24.5-9.4 33.9 0L224 284.5l154.7-154c9.4-9.3 24.5-9.3 33.9 0l22.7 22.7c9.4 9.4 9.4 24.6 0 33.9L241 381.5c-9.4 9.4-24.6 9.4-34 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 10px;
+  }
+}

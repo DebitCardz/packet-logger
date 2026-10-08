@@ -9,8 +9,23 @@ displays it in a digestible and easy graph.
 packet-logger collects anonymous packet data from your server and the clients connected to your server
 which is then saved into a SQLite file every 5 seconds by default.
 
-You can then simply download the SQLite file and parse it using the provided Python script
-to analyze the amount of packets and size of those packets.
+You can then simply download the SQLite file and open it on [packets.cosmos.rip](https://packets.cosmos.rip)
+or parse it using the provided Python script to analyze the amount of packets and size of those packets.
+
+---
+
+### 🌐 Analyze Using the Web Viewer
+The easiest way to look at your data is [packets.cosmos.rip](https://packets.cosmos.rip). Drag and drop your
+SQLite file onto the page and you'll get an overview of your packets: totals, packets per second, a timeline you
+can drag across to zoom into a timeframe, and a breakdown of every packet type split into incoming and outgoing.
+
+You can find your SQLite files in `plugins/packet-logger/<date>/packets_<time>.sqlite`. Each server start creates a
+new file, and you can drop several at once to combine them into one report.
+
+Want to test a change? The **compare** page takes a "before" and an "after" recording and shows how much each packet
+type went up or down per second.
+
+![Web Viewer Screenshot](.github/assets/web-viewer.png)
 
 ---
 

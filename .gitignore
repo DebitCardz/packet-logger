@@ -43,3 +43,9 @@ bin/
 
 ### Other ###
 .idea/
+
+### Web viewer ###
+node_modules/
+web/dist/
+web/.wrangler/
+*.local
