@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Chart, ChartData, ChartOptions, TooltipItem } from 'chart.js'
-import { computed, ref, useTemplateRef } from 'vue'
+import { Chart, type ChartData, type ChartOptions, type TooltipItem } from 'chart.js'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { Bar } from 'vue-chartjs'
 import '../lib/chart'
 import { colorFor } from '../lib/colors'
@@ -18,7 +18,7 @@ const props = defineProps<{
   metric: Metric
   spansDays: boolean
 }>()
-const emit = defineEmits<{ zoom: [window: TimeWindow] }>()
+const emit = defineEmits<{ zoom: [window: TimeWindow]; select: [name: string, additive: boolean] }>()
 
 const colors = useThemeColors()
 
@@ -28,8 +28,14 @@ const brush = ref<{ from: number; to: number } | null>(null)
 /** Only flips at the start and end of a drag, so the chart isn't rebuilt on every mouse move. */
 const brushing = computed(() => brush.value !== null)
 let pointerId: number | null = null
+/** Where a press started; it only becomes a brush once the pointer moves to another bar. */
+let press: { index: number; segment: number | null } | null = null
 
 const formatValue = (value: number) => (props.metric === 'amount' ? formatExactCount(value) : formatBytes(value, 2))
+
+/** Thin surface-coloured line between stacked segments; dropped when bars get too thin for it. */
+const segmentBorder = (buckets: number) => ({ color: colors.value.surface, width: { top: buckets > 240 ? 0 : 1 } })
+const OTHER_PREFIX = 'Other ('
 
 const data = computed<ChartData<'bar'>>(() => {
   const { series, metric, packets, topNames, slots, selected } = props
@@ -40,8 +46,8 @@ const data = computed<ChartData<'bar'>>(() => {
     data,
     backgroundColor: color,
     hoverBackgroundColor: color,
-    borderColor: colors.value.surface,
-    borderWidth: { top: series.buckets.length > 240 ? 0 : 1 },
+    borderColor: segmentBorder(series.buckets.length).color,
+    borderWidth: segmentBorder(series.buckets.length).width,
     borderSkipped: false as const,
     categoryPercentage: 0.9,
     barPercentage: 1,
@@ -55,7 +61,7 @@ const data = computed<ChartData<'bar'>>(() => {
     if (rest.length) {
       const other = zeros()
       for (const { name } of rest) values[name]?.forEach((v, i) => (other[i]! += v))
-      datasets.push(dataset(`Other (${rest.length} types)`, other, colors.value.other))
+      datasets.push(dataset(`${OTHER_PREFIX}${rest.length} types)`, other, colors.value.other))
     }
   }
 
@@ -65,6 +71,46 @@ const data = computed<ChartData<'bar'>>(() => {
   }
 })
 
+// Hovering a segment (or its legend entry) gently fades the other packet types and outlines the segment under the cursor.
+/** 8-digit hex alpha suffix for the other segments (about 65% opacity), enough to recede without going muddy. */
+const FADED = 'A6'
+let hovered: number | null = null
+/** Chart.js replays its last mouse event after every update, even once the cursor has left. */
+let pointerInside = false
+// Read before any fading is applied, so these stay the real colours.
+const baseColors = computed(() => data.value.datasets.map((d) => d.backgroundColor as string))
+watch(data, () => (hovered = null))
+
+function onEnter() {
+  pointerInside = true
+}
+
+function onLeave() {
+  pointerInside = false
+  setHover(null)
+}
+
+function setHover(index: number | null) {
+  const chart = chartRef.value?.chart
+  if (!chart || index === hovered) return
+  const base = baseColors.value
+  hovered = index
+  const buckets = props.series.buckets.length
+  // An outline only reads when bars are wide enough to hold it.
+  const outline = chart.chartArea.width / buckets >= 5
+  chart.data.datasets.forEach((ds, i) => {
+    const active = i === index
+    const color = index === null || active ? base[i]! : `${base[i]}${FADED}`
+    ds.backgroundColor = color
+    ds.hoverBackgroundColor = color
+    // Hover styles only apply to the bar column under the cursor, so exactly that segment gets the outline.
+    // Undefined falls back to the normal border.
+    ds.hoverBorderColor = active && outline ? colors.value.white : undefined
+    ds.hoverBorderWidth = active && outline ? 1.5 : undefined
+  })
+  chart.update('none')
+}
+
 const options = computed<ChartOptions<'bar'>>(() => {
   const c = colors.value
   const tick = (value: number | string) =>
@@ -73,6 +119,18 @@ const options = computed<ChartOptions<'bar'>>(() => {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
+    onHover: (event, _elements, chart) => {
+      if (brushing.value || !event.native) return
+      if (!pointerInside || event.type === 'mouseout') return setHover(null)
+      // Pick the segment at the cursor's height in the nearest bar, so gaps between bars don't flicker.
+      const y = event.y ?? 0
+      const column = chart.getElementsAtEventForMode(event.native, 'index', { intersect: false }, false)
+      const hit = column.find(({ element }) => {
+        const { y: top, base } = element.getProps(['y', 'base'], true) as { y: number; base: number }
+        return y >= Math.min(top, base) && y <= Math.max(top, base)
+      })
+      setHover(hit ? hit.datasetIndex : null)
+    },
     scales: {
       x: {
         stacked: true,
@@ -92,7 +150,23 @@ const options = computed<ChartOptions<'bar'>>(() => {
       legend: {
         display: props.selected.length !== 1,
         position: 'bottom',
-        labels: { color: c.textSecondary, boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2, padding: 12 },
+        labels: {
+          color: c.textSecondary,
+          boxWidth: 10,
+          boxHeight: 10,
+          useBorderRadius: true,
+          borderRadius: 2,
+          padding: 12,
+          // Chart.js caches segment styles, so swatches come from the real colours; the hovered entry stays bright.
+          generateLabels: (chart) =>
+            Chart.defaults.plugins.legend.labels.generateLabels(chart).map((item, i) => {
+              const base = baseColors.value[i] ?? item.fillStyle
+              const dim = hovered !== null && i !== hovered
+              return { ...item, fillStyle: base, strokeStyle: base, fontColor: dim ? c.textMuted : c.textSecondary }
+            }),
+        },
+        onHover: (_event, item) => setHover(item.datasetIndex ?? null),
+        onLeave: () => setHover(null),
       },
       tooltip: {
         ...tooltipStyle(c),
@@ -101,7 +175,8 @@ const options = computed<ChartOptions<'bar'>>(() => {
         itemSort: (a: TooltipItem<'bar'>, b: TooltipItem<'bar'>) => b.parsed.y! - a.parsed.y!,
         filter: (item: TooltipItem<'bar'>) => item.parsed.y! > 0,
         callbacks: {
-          label: (item: TooltipItem<'bar'>) => ` ${item.dataset.label}: ${formatValue(item.parsed.y!)}`,
+          label: (item: TooltipItem<'bar'>) =>
+            `${item.datasetIndex === hovered ? '▸' : ' '} ${item.dataset.label}: ${formatValue(item.parsed.y!)}`,
           footer: (items: TooltipItem<'bar'>[]) =>
             items.length > 1 ? `Total: ${formatValue(items.reduce((sum, i) => sum + i.parsed.y!, 0))}` : '',
         },
@@ -130,22 +205,33 @@ function onDown(event: PointerEvent) {
   if (index === null) return
   pointerId = event.pointerId
   el.setPointerCapture(event.pointerId)
-  brush.value = { from: index, to: index }
+  press = { index, segment: hovered }
 }
 
 function onMove(event: PointerEvent) {
-  if (pointerId !== event.pointerId || !brush.value) return
+  if (pointerId !== event.pointerId || !press) return
   const index = bucketAt(event.clientX, event.currentTarget as HTMLElement)
-  if (index !== null) brush.value = { ...brush.value, to: index }
+  if (index === null || (!brush.value && index === press.index)) return
+  if (!brush.value) setHover(null)
+  brush.value = { from: press.index, to: index }
 }
 
 function onUp(event: PointerEvent) {
   if (pointerId !== event.pointerId) return
   pointerId = null
   const b = brush.value
+  const pressed = press
   brush.value = null
-  // A click without a drag is not a selection.
-  if (!b || b.from === b.to) return
+  press = null
+  // A click without a drag toggles the packet type under the cursor.
+  if (!b) {
+    const label = pressed?.segment != null ? data.value.datasets[pressed.segment]?.label : undefined
+    if (event.type === 'pointerup' && label && !label.startsWith(OTHER_PREFIX)) {
+      emit('select', label, event.shiftKey || event.ctrlKey || event.metaKey)
+    }
+    return
+  }
+  if (b.from === b.to) return
   const { buckets, bucketMs } = props.series
   const lo = Math.min(b.from, b.to)
   const hi = Math.max(b.from, b.to)
@@ -172,6 +258,8 @@ const brushBox = computed(() => {
     @pointermove="onMove"
     @pointerup="onUp"
     @pointercancel="onUp"
+    @pointerenter="onEnter"
+    @pointerleave="onLeave"
   >
     <Bar ref="chart" :data="data" :options="options" />
     <div

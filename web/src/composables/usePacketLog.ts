@@ -173,11 +173,10 @@ export function usePacketLog() {
     packets,
     topNames,
     slots,
-    /** Plain click picks one packet (or clears it); shift/ctrl click adds or removes. */
+    /** Clicking a selected packet deselects it; otherwise a plain click picks just that one and shift/ctrl click adds it. */
     select(name: string, additive: boolean) {
-      const has = selected.value.includes(name)
-      if (additive) selected.value = has ? selected.value.filter((n) => n !== name) : [...selected.value, name]
-      else selected.value = has && selected.value.length === 1 ? [] : [name]
+      if (selected.value.includes(name)) selected.value = selected.value.filter((n) => n !== name)
+      else selected.value = additive ? [...selected.value, name] : [name]
     },
     clearSelection: () => (selected.value = []),
     async zoom(window: TimeWindow | null) {

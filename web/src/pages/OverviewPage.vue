@@ -192,7 +192,7 @@ const STEPS = [
           <h2 class="heading truncate">{{ timelineTitle }}</h2>
           <p class="mt-0.5 text-ink-3">
             totals per {{ bucketLabel }}<template v-if="!selected.length">, top {{ topNames.length }} packet types stacked</template>.
-            drag across the chart to zoom in<span v-if="refreshing">, updating...</span>
+            click a bar segment to select it, drag across the chart to zoom in<span v-if="refreshing">, updating...</span>
           </p>
         </div>
         <div class="flex gap-2">
@@ -210,6 +210,7 @@ const STEPS = [
           :metric="metric"
           :spans-days="range!.spansDays"
           @zoom="log.zoom"
+          @select="log.select"
         />
       </div>
     </section>

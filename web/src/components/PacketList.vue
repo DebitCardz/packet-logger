@@ -75,7 +75,7 @@ const onRowClick = (event: MouseEvent, name: string) => emit('select', name, eve
             {{ selected.length }} selected,
             <button type="button" class="cursor-pointer text-accent hover:underline" @click="emit('clear')">clear</button>
           </template>
-          <template v-else>click to show in the timeline, shift+click to pick several</template>
+          <template v-else>click to show in the timeline, shift+click to pick several, click again to deselect</template>
         </p>
       </div>
       <input v-model="query" type="search" placeholder="search packets..." aria-label="Search packet types" class="field w-full bg-surface-2 sm:w-64" />
