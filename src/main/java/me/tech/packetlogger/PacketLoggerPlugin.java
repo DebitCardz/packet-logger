@@ -21,6 +21,7 @@ public final class PacketLoggerPlugin extends JavaPlugin implements Listener {
     private static final DateTimeFormatter FOLDER_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private BatchedPacketsService batchedPacketsService;
+    private PacketCaptureService packetCaptureService;
     private BukkitMetrics metrics;
 
     @Override
@@ -33,15 +34,31 @@ public final class PacketLoggerPlugin extends JavaPlugin implements Listener {
         this.batchedPacketsService = new BatchedPacketsService(this);
         batchedPacketsService.startPublish();
 
+        this.packetCaptureService = new PacketCaptureService(batchedPacketsService);
+        final var captureCommand = new CaptureCommand(packetCaptureService);
+        final var command = getCommand("packetlogger");
+        command.setExecutor(captureCommand);
+        command.setTabCompleter(captureCommand);
+
         PacketEvents.getAPI().getEventManager().registerListener(new PacketListener() {
             @Override
             public void onPacketSend(PacketSendEvent event) {
                 batchedPacketsService.add(event);
+                packetCaptureService.add(event);
             }
 
             @Override
             public void onPacketReceive(PacketReceiveEvent event) {
                 batchedPacketsService.add(event);
+                packetCaptureService.add(event);
+            }
+
+            @Override
+            public void onUserDisconnect(UserDisconnectEvent event) {
+                final var uuid = event.getUser().getUUID();
+                if(uuid != null) {
+                    packetCaptureService.finish(uuid);
+                }
             }
         }, PacketListenerPriority.MONITOR);
     }
@@ -51,6 +68,7 @@ public final class PacketLoggerPlugin extends JavaPlugin implements Listener {
         Bukkit.getAsyncScheduler().cancelTasks(this);
         metrics.shutdown();
 
+        packetCaptureService.finishAll();
         batchedPacketsService.flush();
     }
 

@@ -26,6 +26,36 @@ Want to test a change? The **compare** page takes a "before" and an "after" reco
 type went up or down per second.
 
 ![Web Viewer Screenshot](.github/assets/web-viewer.png)
+---
+
+### 🔎 Capture a Player's Packets
+The packet counts show how many packets go in and out and how big they are, but not what's inside them. When you need
+the contents, for example to find out what's behind a spike in your report or to debug a plugin, you can capture one
+player's packets:
+
+```
+/packetlogger capture <player> [count]
+```
+
+This saves the next `count` packets that player sends and receives, 200 by default and up to 5000, with each one decoded
+into JSON. Once the count is reached, the player leaves or the server stops, the capture is written to the same SQLite
+file as your counts, `plugins/packet-logger/<date>/packets_<time>.sqlite`, and you're sent the file's full path so you
+know which one to grab. You need the `packetlogger.capture` permission, which ops have by default.
+
+To look at it, drop that file on the **capture** page of [packets.cosmos.rip](https://packets.cosmos.rip/#/capture).
+You can go through the packets in order, filter them by direction or name, open any packet to see its contents, or
+download the whole capture as JSON.
+
+> [!NOTE]
+> Mob and player movement adds up fast, so 200 packets can be less than a second of play. Use a bigger count if you
+> want to catch something you do by hand. Packets that PacketEvents can't decode are saved as raw hex instead.
+
+> [!IMPORTANT]
+> Captures are meant for looking into something specific, like one player's lag or a plugin sending more than it
+> should. Unlike the packet counts, which are anonymous totals, a capture holds the actual contents of that player's
+> packets, chat messages included. So capture only when you need to, and don't post capture files publicly.
+
+![Capture Page Screenshot](.github/assets/capture-page.png)
 
 ---
 

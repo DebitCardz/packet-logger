@@ -2,6 +2,7 @@
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
 import type {
+  Capture,
   DatasetKey,
   Direction,
   LoadedFile,
@@ -20,7 +21,7 @@ const MAX_BUCKETS = 5000
 
 let sqlPromise: Promise<SqlJsStatic> | undefined
 type Loaded = { file: LoadedFile; db: Database }
-const datasets: Record<DatasetKey, Loaded[]> = { main: [], before: [], after: [] }
+const datasets: Record<DatasetKey, Loaded[]> = { main: [], before: [], after: [], capture: [] }
 
 function sql(): Promise<SqlJsStatic> {
   sqlPromise ??= initSqlJs({ locateFile: () => wasmUrl })
@@ -32,7 +33,26 @@ function hasTable(db: Database, table: string): boolean {
   return res.length > 0
 }
 
-function open(SQL: SqlJsStatic, name: string, buffer: ArrayBuffer): Loaded {
+/** The table a view reads and how to explain a file that doesn't have what it needs. */
+const PACKET_DATA = {
+  table: 'batched_packets',
+  time: 'collected_at',
+  missing: 'no batched_packets table, is this a packet-logger file?',
+  empty: 'the file has no packet data yet',
+}
+const REQUIREMENTS: Record<DatasetKey, typeof PACKET_DATA> = {
+  main: PACKET_DATA,
+  before: PACKET_DATA,
+  after: PACKET_DATA,
+  capture: {
+    table: 'captured_packets',
+    time: 'captured_at',
+    missing: 'no captures in this file, run /packetlogger capture on the server first',
+    empty: 'the capture table in this file is empty',
+  },
+}
+
+function open(SQL: SqlJsStatic, name: string, buffer: ArrayBuffer, dataset: DatasetKey): Loaded {
   let db: Database
   try {
     db = new SQL.Database(new Uint8Array(buffer))
@@ -42,18 +62,19 @@ function open(SQL: SqlJsStatic, name: string, buffer: ArrayBuffer): Loaded {
     throw new Error('not a SQLite database')
   }
 
-  if (!hasTable(db, 'batched_packets')) {
+  const required = REQUIREMENTS[dataset]
+  if (!hasTable(db, required.table)) {
     db.close()
-    throw new Error('no batched_packets table, is this a packet-logger file?')
+    throw new Error(required.missing)
   }
 
   const [row] = db.exec(
-    'SELECT COUNT(*), MIN(collected_at), MAX(collected_at) FROM batched_packets',
+    `SELECT COUNT(*), MIN(${required.time}), MAX(${required.time}) FROM ${required.table}`,
   )[0]?.values ?? []
   const [rows, start, end] = (row ?? [0, null, null]) as [number, number | null, number | null]
   if (!rows || start == null || end == null) {
     db.close()
-    throw new Error('the file has no packet data yet')
+    throw new Error(required.empty)
   }
 
   return { file: { name, sizeBytes: buffer.byteLength, rows, start, end }, db }
@@ -71,6 +92,8 @@ function totals(dataset: DatasetKey, window: TimeWindow | null): PacketTotal[] {
   const filter = windowFilter(window, 'b.collected_at')
 
   for (const { db } of datasets[dataset]) {
+    // Files opened only for their captures have no counts to add.
+    if (!hasTable(db, 'batched_packets')) continue
     // packet_bound has one row per packet type per session; MAX() guards against duplicates.
     const boundJoin = hasTable(db, 'packet_bound')
       ? `LEFT JOIN (SELECT packet_name, MAX(outgoing) AS outgoing FROM packet_bound GROUP BY packet_name) pb
@@ -142,6 +165,33 @@ function series(dataset: DatasetKey, bucketMs: number, window: TimeWindow | null
   return { bucketMs, buckets, amount, bytes }
 }
 
+/** Every capture in the loaded files, newest first. */
+function captures(dataset: DatasetKey): Capture[] {
+  const result: Capture[] = []
+  for (const { file, db } of datasets[dataset]) {
+    if (!hasTable(db, 'captured_packets')) continue
+    const stmt = db.prepare(`
+      SELECT capture_id, player_uuid, player_name, id, packet_name, outgoing, size_bytes, captured_at, data
+      FROM captured_packets
+      ORDER BY capture_id, captured_at, id
+    `)
+    let current: Capture | undefined
+    while (stmt.step()) {
+      const [captureId, uuid, player, id, name, outgoing, size, at, data] =
+        stmt.get() as [number, string, string, number, string, number, number, number, string]
+      const key = `${file.name}:${captureId}`
+      if (current?.key !== key) {
+        current = { key, file: file.name, player, playerUuid: uuid, start: at, end: at, packets: [] }
+        result.push(current)
+      }
+      current.packets.push({ id, name, direction: outgoing ? 'out' : 'in', sizeBytes: size, at, data })
+      current.end = at
+    }
+    stmt.free()
+  }
+  return result.sort((a, b) => b.start - a.start)
+}
+
 function reset(dataset: DatasetKey) {
   for (const { db } of datasets[dataset].splice(0)) db.close()
 }
@@ -154,7 +204,7 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       const opened: Loaded[] = []
       for (const { name, buffer } of request.files) {
         try {
-          opened.push(open(SQL, name, buffer))
+          opened.push(open(SQL, name, buffer, request.dataset))
         } catch (err) {
           skipped.push({ name, reason: err instanceof Error ? err.message : String(err) })
         }
@@ -170,13 +220,15 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       const db = createSampleDatabase(SQL, request.variant)
       const buffer = db.export().buffer as ArrayBuffer
       db.close()
-      datasets[request.dataset].push(open(SQL, `sample-${request.variant}.sqlite`, buffer))
+      datasets[request.dataset].push(open(SQL, `sample-${request.variant}.sqlite`, buffer, request.dataset))
       return { ...summarize(request.dataset, []), added: 1 }
     }
     case 'series':
       return series(request.dataset, request.bucketMs, request.window)
     case 'totals':
       return totals(request.dataset, request.window)
+    case 'captures':
+      return captures(request.dataset)
     case 'reset':
       reset(request.dataset)
       return null

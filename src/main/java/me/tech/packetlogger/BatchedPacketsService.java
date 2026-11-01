@@ -120,6 +120,49 @@ public final class BatchedPacketsService {
     }
 
     /**
+     * Queue a finished capture to be written to SQLite.
+     * @param capture the captured packets
+     */
+    public void addCapture(PacketCaptureService.Capture capture) {
+        executor.submit(() -> insertCapture(capture));
+    }
+
+    /**
+     * Write a capture to SQLite right away.
+     * @param capture the captured packets
+     */
+    public void insertCapture(PacketCaptureService.Capture capture) {
+        try(final var conn = getConnection()) {
+            conn.setAutoCommit(false);
+            final String sql = "INSERT INTO captured_packets (capture_id, player_uuid, player_name, packet_name, outgoing, size_bytes, captured_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+            try(final var statement = conn.prepareStatement(sql)) {
+                for(final var packet : capture.packets()) {
+                    statement.setLong(1, capture.id());
+                    statement.setString(2, capture.playerUuid().toString());
+                    statement.setString(3, capture.playerName());
+                    statement.setString(4, packet.name());
+                    statement.setBoolean(5, packet.outgoing());
+                    statement.setInt(6, packet.sizeBytes());
+                    statement.setLong(7, packet.capturedAt());
+                    statement.setString(8, packet.data());
+                    statement.addBatch();
+                }
+
+                statement.executeBatch();
+                conn.commit();
+            } catch(SQLException ex) {
+                conn.rollback();
+                log.error("Unable to save packet capture of {}.", capture.playerName(), ex);
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch(SQLException ex) {
+            log.error("Unable to open SQLite connection for packet capture.", ex);
+        }
+    }
+
+    /**
      * Add a packet bound to the SQLite database.
      * @param packetName the packet name
      * @param outgoing whether it's incoming or outgoing
@@ -183,6 +226,19 @@ public final class BatchedPacketsService {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "packet_name TEXT NOT NULL, " +
                         "outgoing INTEGER NOT NULL " +
+                        ");");
+
+            conn.createStatement()
+                    .execute("CREATE TABLE IF NOT EXISTS captured_packets ("+
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "capture_id INTEGER NOT NULL, " +
+                        "player_uuid TEXT NOT NULL, " +
+                        "player_name TEXT NOT NULL, " +
+                        "packet_name TEXT NOT NULL, " +
+                        "outgoing INTEGER NOT NULL, " +
+                        "size_bytes INTEGER NOT NULL, " +
+                        "captured_at INTEGER NOT NULL, " +
+                        "data TEXT NOT NULL" +
                         ");");
             log.info("Created batched_packets table in SQLite DB.");
         } catch (SQLException ex) {

@@ -1,22 +1,26 @@
 <script setup lang="ts">
 import { computed, useTemplateRef } from 'vue'
+import { useCaptures } from './composables/useCaptures'
 import { useComparison } from './composables/useComparison'
 import { usePacketLog } from './composables/usePacketLog'
 import { useRoute } from './composables/useRoute'
 import { useTheme } from './composables/useTheme'
 import { formatBytes } from './lib/format'
+import CapturePage from './pages/CapturePage.vue'
 import ComparePage from './pages/ComparePage.vue'
 import OverviewPage from './pages/OverviewPage.vue'
 
-// Both pages keep their state while you switch between them.
+// Every page keeps its state while you switch between them.
 const log = usePacketLog()
 const cmp = useComparison()
+const cap = useCaptures()
 const route = useRoute()
 const { theme, toggle } = useTheme()
 
 const NAV = [
   { route: 'overview', label: 'report', href: '#/' },
   { route: 'compare', label: 'compare', href: '#/compare' },
+  { route: 'capture', label: 'capture', href: '#/capture' },
 ] as const
 
 const fileSummary = computed(() => {
@@ -88,7 +92,8 @@ function onPick(event: Event) {
 
     <main class="mx-auto w-full max-w-[1600px] flex-1 px-3 pt-3 sm:px-5">
       <OverviewPage v-if="route === 'overview'" :log="log" />
-      <ComparePage v-else :cmp="cmp" />
+      <ComparePage v-else-if="route === 'compare'" :cmp="cmp" />
+      <CapturePage v-else :cap="cap" />
     </main>
 
     <footer class="px-4 py-6 text-center text-ink-3">

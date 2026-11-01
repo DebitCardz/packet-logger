@@ -67,6 +67,7 @@ export function useDataset(key: DatasetKey) {
     loadSample: (variant: SampleVariant) => apply(() => db.sample(variant)),
     series: db.series,
     totals: db.totals,
+    captures: db.captures,
     async reset() {
       await db.reset()
       summary.value = null

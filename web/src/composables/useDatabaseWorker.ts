@@ -1,4 +1,4 @@
-import type { DatasetKey, LoadResult, PacketTotal, SampleVariant, TimeSeries, TimeWindow, WorkerRequest, WorkerResponse } from '../lib/types'
+import type { Capture, DatasetKey, LoadResult, PacketTotal, SampleVariant, TimeSeries, TimeWindow, WorkerRequest, WorkerResponse } from '../lib/types'
 import DatabaseWorker from '../workers/database.worker?worker'
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void }
@@ -46,6 +46,7 @@ export function useDatabaseWorker(dataset: DatasetKey) {
     series: (bucketMs: number, window: TimeWindow | null = null) =>
       call<TimeSeries>({ type: 'series', dataset, bucketMs, window: plain(window) }),
     totals: (window: TimeWindow | null) => call<PacketTotal[]>({ type: 'totals', dataset, window: plain(window) }),
+    captures: () => call<Capture[]>({ type: 'captures', dataset }),
     reset: () => call<null>({ type: 'reset', dataset }),
   }
 }

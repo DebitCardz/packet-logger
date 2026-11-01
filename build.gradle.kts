@@ -44,4 +44,12 @@ bukkit {
     foliaSupported = true
 
     depend = listOf("packetevents")
+
+    commands {
+        register("packetlogger"){
+            description = "Capture a player's packets to view as JSON."
+            usage = "/packetlogger capture <player> [count]"
+            permission = "packetlogger.capture"
+        }
+    }
 }
